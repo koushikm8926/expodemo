@@ -5,11 +5,50 @@ import {
     Text,
     TouchableOpacity,
     SafeAreaView,
-    Image,
+    Platform,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = ({ navigation }) => {
+
+    const handleAppleSignIn = async () => {
+        try {
+            const credential = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                ],
+            });
+
+            console.log('Apple credential:', credential);
+
+            // Save user name & email on first sign-in (Apple only sends these ONCE)
+            if (credential.fullName?.givenName) {
+                const firstName = credential.fullName.givenName || '';
+                const lastName = credential.fullName.familyName || '';
+                const fullName = `${firstName} ${lastName}`.trim();
+                await AsyncStorage.setItem('userName', fullName);
+            }
+            if (credential.email) {
+                await AsyncStorage.setItem('userEmail', credential.email);
+            }
+
+            // If login succeeds → navigate to Subscription
+            if (credential.identityToken) {
+                const savedName = await AsyncStorage.getItem('userName');
+                navigation.navigate('Subscription', { userName: savedName || 'User' });
+            }
+        } catch (error) {
+            if (error.code === 'ERR_REQUEST_CANCELED') {
+                console.log('User cancelled Apple Sign In');
+            } else {
+                console.error('Apple Sign In error', error);
+            }
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.content}>
@@ -30,15 +69,23 @@ const LoginScreen = ({ navigation }) => {
                     Sign in to continue. Use your Apple ID to securely access the app.
                 </Text>
 
-                {/* Sign In Button */}
-                <TouchableOpacity
-                    style={styles.appleButton}
-                    activeOpacity={0.8}
-                    onPress={() => navigation.navigate('Subscription')}
-                >
-                    <FontAwesome5 name="apple" size={20} color="white" style={styles.appleIcon} />
-                    <Text style={styles.appleButtonText}>Sign in with Apple</Text>
-                </TouchableOpacity>
+                {/* Apple Sign In Button — iOS only */}
+                {Platform.OS === 'ios' ? (
+                    <AppleAuthentication.AppleAuthenticationButton
+                        buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                        cornerRadius={12}
+                        style={styles.appleAuthButton}
+                        onPress={handleAppleSignIn}
+                    />
+                ) : (
+                    <View style={styles.androidNotice}>
+                        <Ionicons name="information-circle-outline" size={20} color="#8E8E93" />
+                        <Text style={styles.androidNoticeText}>
+                            Apple Sign In is only available on iOS devices.
+                        </Text>
+                    </View>
+                )}
 
                 {/* Privacy Note */}
                 <View style={styles.privacyContainer}>
@@ -125,24 +172,26 @@ const styles = StyleSheet.create({
         marginBottom: 60,
         paddingHorizontal: 10,
     },
-    appleButton: {
-        backgroundColor: '#0F1217',
-        flexDirection: 'row',
+    appleAuthButton: {
         width: '100%',
         height: 60,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
         marginBottom: 30,
     },
-    appleIcon: {
-        marginRight: 10,
-        marginBottom: 4,
+    androidNotice: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F5F5F5',
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        marginBottom: 30,
+        width: '100%',
     },
-    appleButtonText: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: '600',
+    androidNoticeText: {
+        color: '#8E8E93',
+        fontSize: 14,
+        marginLeft: 10,
+        flex: 1,
     },
     privacyContainer: {
         alignItems: 'center',
