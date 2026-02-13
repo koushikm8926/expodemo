@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     SafeAreaView,
     Platform,
+    Alert,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -42,9 +43,15 @@ const LoginScreen = ({ navigation }) => {
             }
         } catch (error) {
             if (error.code === 'ERR_REQUEST_CANCELED') {
+                // User cancelled the sign-in flow
                 console.log('User cancelled Apple Sign In');
             } else {
-                console.error('Apple Sign In error', error);
+                // Handle other errors (like 1001, invalid client, etc.)
+                console.error('Apple Sign In error:', error);
+                Alert.alert(
+                    'Apple Sign-In Failed',
+                    `Error: ${error.message || error.code || 'Unknown Error'}. \n\nIf you are in Simulator, try Device -> Erase All Content and Settings, or ensure you are signed into iCloud.`
+                );
             }
         }
     };
